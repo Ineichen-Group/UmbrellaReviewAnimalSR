@@ -1,0 +1,188 @@
+---
+title: "Mining_Validation"
+output: html_document
+date: "2023-07-07"
+---
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(irr)
+library(tidyr)
+library(readxl)
+
+# install.packages("")
+```
+
+```{r message=FALSE, warning=FALSE}
+RoB_predicted <- read_csv("RoB_predicted.csv")
+```
+
+Generating the random sample for BH and D. 73 papers to be assessed, 7 papers in common between the two raters to assess IRR. 33 unique papers each.
+```{r message=FALSE, warning=FALSE}
+common<-RoB_predicted[sample(nrow(RoB_predicted),7),] %>% 
+  mutate(reviewer="both") 
+
+df_no_common<-anti_join(RoB_predicted,common)
+  
+df_validation<-df_no_common[sample(nrow(df_no_common),66),] %>% 
+  cbind(reviewer=rep(c("D","B"),each=33))%>% 
+    rbind(.,common)  %>%
+  mutate(across(starts_with("Rob_"), ~ ifelse(is.na(.), NA, ""))) %>% 
+  mutate(file_name=gsub("html/","",file_name))%>% 
+  mutate(file_name=gsub(".html",".pdf",file_name)) 
+    
+
+# write.csv(df_validation,"validation.csv")
+
+
+```
+
+```{r}
+folder_path <- "C:/Users/maria/Desktop/RoB_Mining/All_PDFs_automated_RoB"
+
+# Get the list of files in the folder
+files <- list.files("validation/D")
+
+# Rename files by removing spaces
+for (file in files) {
+  new_file <- gsub(" ", "", file)
+  new_file_path <- file.path(folder_path, new_file)
+  file_path <- file.path(folder_path, file)
+  file.rename(file_path, new_file_path)
+}
+```
+
+
+```{r}
+source_folder <- "C:/Users/maria/Desktop/RoB_Mining/All_PDFs_automated_RoB"
+destination_folder_B <- "validation/B"
+destination_folder_D <- "validation/D"
+destination_folder_Common <- "validation/Common"
+
+if (!dir.exists(destination_folder_B)) {
+  dir.create(destination_folder_B)
+}
+
+if (!dir.exists(destination_folder_D)) {
+  dir.create(destination_folder_D)
+}
+
+if (!dir.exists(destination_folder_Common)) {
+  dir.create(destination_folder_Common)
+}
+
+# Get the list of files in the source folder
+files_B <- df_validation$file_name[df_validation$reviewer=="B"]
+files_D <- df_validation$file_name[df_validation$reviewer=="D"]
+files_Common <- df_validation$file_name[df_validation$reviewer=="both"]
+
+# Copy files to the destination folder
+for (i in files_B) {
+  file.copy(file.path(source_folder, i), file.path(destination_folder_B, i))
+}
+
+for (i in files_D) {
+  file.copy(file.path(source_folder, i), file.path(destination_folder_D, i))
+}
+
+for (i in files_Common) {
+  file.copy(file.path(source_folder, i), file.path(destination_folder_Common, i))
+}
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# validation_D <- read_csv("validation_D.csv")
+validation_D_clean<-validation_D %>% 
+  mutate(file_name=gsub("_0","_separator0",file_name)) %>% 
+  mutate(file_name=gsub("_1","_separator1",file_name),file_name=gsub(".pdf","",file_name)) %>% 
+  separate(file_name,into=c("file_name","b"),sep="_separator")%>% 
+  mutate(b=gsub("_D|_both","",b)) %>% 
+  select(file_name,b) %>% 
+  separate(b,into=names(validation_D[2:14]),sep="(?<=.)") %>% 
+  select(!c(Rob_metaanalysis,Rob_deviations))
+```
+
+
+```{r message=TRUE, warning=FALSE}
+validation_B <- read_csv("validation_B.csv") %>% 
+  mutate(file_name=gsub(".pdf","",file_name))%>% 
+  select(!c(Rob_metaanalysis,Rob_deviations)) %>% 
+  filter(!is.na(file_name))
+```
+
+IRR: 98% agreement
+```{r}
+merged_df<-merge(validation_B,validation_D_clean,by="file_name")
+
+kappas<-data.frame()
+RoB_items<-c("Rob_protocol","Rob_question","Rob_inexclusioncriteria","Rob_search","Rob_date","Rob_string","Rob_rob","Rob_guidelines","Rob_flowchart","Rob_coi","Rob_extraction")
+
+for(i in RoB_items){
+  temp_df<-merged_df[, c(paste0(i,".x"), paste0(i,".y"))] %>% 
+    rename(X=1,Y=2) %>% 
+    mutate(item=i)
+  
+kappas<-rbind(kappas,temp_df)
+}
+
+kappas %>% 
+  mutate(agreement=ifelse(X==Y,"yes","no")) %>% 
+  group_by(item,agreement) %>% 
+  count()
+```
+
+
+```{r}
+df_both_reviwers<-
+rbind(validation_B %>% 
+  filter(!(reviewer=="both")) %>% 
+  select(!(reviewer)),
+validation_D_clean) %>% 
+  rename_at(vars(-file_name),function(x) paste0(x,"_manual"))
+
+
+rev_mined_merged_df<-RoB_predicted %>%
+  mutate(file_name=gsub("html/","",file_name),file_name=gsub(".html","",file_name)) %>% 
+  select(!c(Rob_metaanalysis,Rob_deviations)) %>% 
+  rename_at(vars(-file_name),function(x) paste0(x,"_mined")) %>% 
+  merge(.,df_both_reviwers,by="file_name")
+
+df_reliability_mining<-data.frame()
+
+for(i in RoB_items){
+df_template<-data.frame(cbind(result=c("TN","TP","FN","FP"),na=NA))
+
+df_temp<-
+  rev_mined_merged_df %>% 
+  select(file_name,paste0(i,"_manual"),paste0(i,"_mined")) %>% rename(manual=2,mined=3)%>% 
+  mutate(result=case_when(
+    manual==1&mined==1~"TP",
+    manual==1&mined==0~"FN",
+    manual==0&mined==1~"FP",
+    manual==0&mined==0~"TN",
+  ))%>%
+  group_by(result) %>% 
+  count()%>%
+  merge(.,df_template,by="result",all.y=T)  %>%
+  select(!(na)) %>%
+  replace_na(list(n=0)) %>%
+  pivot_wider(names_from = result,values_from = n)
+
+df<-data.frame(cbind(
+  item=i,
+  df_temp,
+  sensitivity=df_temp$TP/(df_temp$TP+df_temp$FN),
+  specificity=df_temp$TN/(df_temp$TN+df_temp$FP),
+  precision=df_temp$TP/(df_temp$TP+df_temp$FP),
+  F1=2*df_temp$TP/(2*df_temp$TP+df_temp$FP+df_temp$FN),
+    accuracy=(df_temp$TP+df_temp$TN)/(df_temp$TP+df_temp$TN+df_temp$FP+df_temp$FN)))
+
+  df_reliability_mining<-rbind(df_reliability_mining,df)
+
+}
+
+write.csv(df_reliability_mining,"Reliability_mining.csv")
+```
+

@@ -1,0 +1,492 @@
+---
+title: "DataViz"
+output: html_document
+date: "2023-12-11"
+---
+
+```{r message=FALSE, warning=FALSE}
+library(countrycode)
+library(dplyr)
+library(ggbeeswarm)
+library(ggplot2)
+library(ggpubr)
+library(ggstar)
+library(readr)
+library(rnaturalearth)
+library(scales)
+library(stringr)
+library(tidyr)
+```
+
+
+```{r}
+alldata <- read_csv("alldata.csv")
+```
+
+Figure 2 - topics in the reviews
+```{r}
+#Mining the topics
+
+additional_terms <- list(
+  "Sleep Physio-/ & Pathology" = c("sleep"),
+  "Anxiety Disorder" = c("anxiety"),
+  "Eating Disorders" = c("anorexia","eating dis"),
+  "Chagas" = c("Chagas"),
+  "Rett Syndrome" = c("rett syndrome"),
+  "Acupuncture" = c("acupuncture"),
+  "Depression" = c("depress"),
+  "Schizophrenia" = c("schizophrenia"),
+  "Bipolar Disorder" = c("bipolar"),
+  "Autism" = c("autism"),
+  "Guillain-Barre Syndrome" = c("guillain"),
+  "Infection" = c("infection","chagas","meningitis","coronavirus","Zika Virus","parasi"),
+  "Alzheimer's" = c("alzheimer"),
+  "Addiction" = c("addicti","withdrawal","cocaine", "nicotine","eating dis"),
+  "PTSD" = c("ptsd","posttraumatic stress"),
+  "Ischemia & Cerebrovascular Disease" = c("stroke", "ischem", "ischaem", "vascular", "infarct", "hemorrhage", "haemorrhage", "occlusion", "blood flow", "aneury", "reperfusion", "blood clot lysis","Small vessel"),
+  "Psychiatry" = c("motivation","fear","depress", "addicti", "schizophrenia", "anxiety", "psych", "behavio", "mood", "withdrawal", "bipolar", "ketamine", "autism", "attention", "cocaine", "nicotine", "stress disorder", "mental health", "mental disease", "impuls", "social", "aggressi", "eating dis"),
+  "Neonatal/Neurodevelopmental" = c("neurodeve", "neonatal", "pregnancy", "neurogenesis", "child", "newborn", "fetal", "development", "preschool","postnatal", "spina bifi"),
+  "Translational Research" = c("animal model", "safety", "efficacy", "pharm", "drug", "translation", "treatment", "therap", "model", "human", "outcome", "clinical tr", "clinical eff"),
+  "Alzheimer/Dementia" = c("alzheimer", "amyloid", "dementia", "tau"),
+  "Epilepsy" = c("epilep", "seizure", "convuls"),
+  "Neoplastic" = c("neoplas", "cancer", "tumor", "tumour", "glioblastoma", "glioma", "meningioma", "chemotherapy", "antiproliferat"),
+  "Gut Brain Axis" = c("gut", "probiotic", "diet", "nutri", "obesity", "fecal", "fasting"),
+  "Traumatic Brain Injury" = c("traumatic brain injury", "concussion", "tbi"),
+  "Pain" = c("pain", "neuralgia", "alges", "nocicept"),
+  "ALS" = c("amyotrophic lateral sclerosis", "motor neuron di"),
+  "Pharmacology" = c("cannabis","azole", "toxic", "antagonis", "inhibit", "drug", "pharma", "ketamine", "metformin", "riluzole", "cocaine", "dose", "nicotine", "paracetamol", "lithium", "statin", "amphetamin", "agent", "methylprednisolone", "oxcarbazepine", "phenobarbital", "quercetin", "carbamazepine", "propofol"),
+  "Neuromuscular Disease" = c("musc", "dystroph", "guillain", "myasthenia", "peripheral neuropathy", "motor","cersebral palsy"),
+  "Neuroprotection" = c("neuroprotect","neuro-protection"),
+  "Parkinson" = c("parkinson"),
+  "Huntington" = c("huntington"),
+  "Multiple Sclerosis" = c("multiple sclerosis", "experimental autoimmune encephalomyelitis", "cuprizone", "neuroinflamm"),
+  "Spinal Cord Injury" = c("spinal cord injur","Intervertebral","Cauda equina","Spinal Injury","spinal cord","spinal trauma","Spinal fracture"),
+  "Polyneuropathy" = c("polyneuropathy"),
+  "Headache" = c("headache"),
+  "Memory" = c("memory"),
+  "PNS" = c("peripheral ne"),
+  "Cerebral Palsy" = c("cerebral palsy"),
+  "Diabetes" = c("diabet"),
+  "Alternative Medicine" = c("traditional", "herba", "acupuncture"),
+  "Neurodegenerative" = c("amyotrophic lateral sclerosis", "motor neuron di",
+                          "guillain",
+                          "alzheimer", "amyloid", "dementia", "tau",
+                          "multiple sclerosis", "experimental autoimmune encephalomyelitis", "cuprizone", "neuroinflamm",
+                          "polyneuropathy",
+                          "degenerat",
+                          "cerebral palsy",
+                          "diabet",
+                          "huntington",
+                          "parkinson"),
+  #"Neuroinflammation" = c("multiple sclerosis", "experimental autoimmune encephalomyelitis", "cuprizone", "neuroinflamm","inflammation"),
+  "Neuroendocrinology" = c("Hypophyseal","Pituitary","ACTH","Cushing","antidiuretic","Brain-derived neurotrophic factor","Adrenocorticotropic Hormon","Growth Hormon","endocrine"),
+  "Neuroradiology" = c("imaging","magnetic resonance","positron","computed","Electroencephalo"),
+  "Neurourology" = c("bladder","Erectile"),
+  "Surgery" = c("surgery"),
+  "Spina Bifida" = c("spina bifi"),
+  "Blood-Brain Barrier" = c("blood-brain"),
+  "Veterinary Medicine" = c("veterinary"),
+  "Neurobiology" = c("signaling","Neurobiology","Neuroscience","Biomarker","Electrophysiology","blood-brain","neuron","potential","synapse","Neurotransmission","synaptic plast","neurophysiol"),
+  "NeuroOpthalmology" = c("optic nerve","retina","ocular","blind","Diplopia","Papilledema","Visual evoked potentials"),
+  "NeuroOtology" = c("hearing loss","vestibular","auditory neuropathy","Meniere","Tinnitus","Cochlear","otologic"),
+  "Neurosensory(both from above)" = c("optic nerve","retina","ocular","blind","Diplopia","Papilledema","Visual evoked potentials","hearing loss","vestibular","auditory neuropathy","Meniere","Tinnitus","Cochlear","otologic"),
+  "Stroke" = c("stroke"),
+  "Hemorrhagic stroke" = c("hemorrhage","haemorrh")
+  
+  
+)
+
+# # Convert the keywords_bubble column to a character vector
+keywords_bubble <- as.character(alldata$keywords)
+
+# Create a dataframe for keywords
+df_topics_tag <- data.frame(keywords_bubble)
+df_topics_tag$Tag <- ""
+
+count_FUN <- function(keywords, terms) {
+  count <- sum(grepl(paste(terms, collapse = "|"), keywords, ignore.case = TRUE))
+  #cat("searching for:", paste(terms, collapse = "|"), "in:", keywords, "result:", count, "at indexes:", indexes, "\n")
+  return(count)
+}
+
+assign_tags_FUN <- function(keywords, terms) {
+  indexes <- which(grepl(paste(terms, collapse = "|"), keywords, ignore.case = TRUE))
+  #cat("searching for:", paste(terms, collapse = "|"), "in:", keywords, "result:", count, "at indexes:", indexes, "\n")
+  return(indexes) 
+}
+
+
+additional_term_counts <- sapply(names(additional_terms), function(term) {
+  count_FUN(keywords = keywords_bubble, terms = additional_terms[[term]])
+})
+
+tags <- sapply(names(additional_terms), function(term) {
+  assign_tags_FUN(keywords = keywords_bubble, terms = additional_terms[[term]])
+})
+
+# # Update the "Tag" column in df_topics_tag using the obtained indexes for each term
+# for (term in names(additional_terms)) {
+#   indexes <- unlist(tags[[term]])
+#   df_topics_tag$Tag[indexes] <- paste(df_topics_tag$Tag[indexes], term, sep = ",")
+# }
+
+for (term in names(additional_terms)) {
+  indexes <- unlist(tags[[term]])
+  for (index in indexes) {
+    if (is.na(df_topics_tag$Tag[index]) || df_topics_tag$Tag[index] == "") {
+      df_topics_tag$Tag[index] <- term
+    } else {
+      df_topics_tag$Tag[index] <- paste(df_topics_tag$Tag[index], term, sep = ",")
+    }
+  }
+}
+
+# Combine topic counts and additional term counts into a single dataframe
+df_topics_keywords <- data.frame(
+  Topics = c(names(additional_terms)),
+  Count = c(additional_term_counts)
+)
+
+# Capitalize the "Topics" column, preserving abbreviations in all capitals
+df_topics_keywords$Topics <- str_to_title(df_topics_keywords$Topics)
+
+# Create a reference dataframe for all topics and additional terms
+df_topics_keywords_reference <- df_topics_keywords
+row.names(df_topics_keywords_reference) <- seq_len(nrow(df_topics_keywords_reference))
+
+# Clean up the workspace by removing unnecessary variables
+
+
+########################## Fig x Keywords Topics as Barplot ########################## CAVE CODE FROM ABOVE NEC: dfs_topics_keywords_reference 
+
+  
+### Create abbreviated df_topics_abbreviated
+# Step 1: Create an empty dataframe
+df_topics_abbreviated <- df_topics_keywords_reference[df_topics_keywords_reference$Topics %in% c("Ischemia & Cerebrovascular Disease", "Psychiatry", "Neurobiology", "Pharmacology", "Neurodegenerative"), ]
+
+
+# Sort the data frame based on the Count column in descending order
+df_topics_abbreviated <- df_topics_abbreviated[order(-df_topics_abbreviated$Count), ]
+
+# Rename for Aesthetics of ggplot
+#df_topics_abbreviated$Topics <- gsub("Neoplastic", "Neo-plastic", df_topics_abbreviated$Topics)
+df_topics_abbreviated$Topics <- gsub("Neurodegenerative", "Neuro-degenerative", df_topics_abbreviated$Topics)
+#df_topics_abbreviated$Topics <- gsub("Neuroinflammation", "Neuro-inflammation", df_topics_abbreviated$Topics)
+#df_topics_abbreviated$Topics <- gsub("Neonatal/Neurodevelopmental", "Neonatal & Neuro-developmental", df_topics_abbreviated$Topics)
+df_topics_abbreviated$Topics <- gsub("Neurobiology", "Neurobiology & Physiology", df_topics_abbreviated$Topics)
+
+
+##Bar plot
+topic_bar_plot<-ggplot(df_topics_abbreviated, aes(x = reorder(Topics, -Count), y = Count)) +
+  geom_bar(stat = "identity",fill="#186B8B",width=0.7) +
+  geom_label(aes(y = Count+12,label = paste("n =", Count)),label.size = F) +
+  labs(x = "Topic", y = "Number of publications") + 
+  theme_minimal()+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+        )+
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 2, whitespace_only = FALSE))
+
+#1305 out of 1358 papers are covered - is this correct? 
+# 333+318+310+220+124
+
+# topic_bar_plot
+
+ggsave("topic_bar_plot.png",topic_bar_plot,width=6,height=5,dpi=300,bg="white")
+ggsave("topic_bar_plot.svg",topic_bar_plot,width=6,height=5,dpi=300,bg="white")
+
+```
+
+Figure 3 - world map
+```{r}
+world <- ne_countries(scale = "small", returnclass = "sf")
+
+world_map_plot<-
+  alldata %>% 
+  mutate(country_split=strsplit(as.character(country), ", ")) %>% 
+  unnest(country_split) %>% 
+  group_by(country_split) %>% 
+    count() %>% 
+  ungroup() %>% 
+  select(country_split,n)%>% 
+  filter(!is.na(country_split)) %>% 
+  mutate(country_split=case_when(
+    country_split=="USA"~"United States of America",
+    country_split=="UK"~"United Kingdom",
+    TRUE~country_split
+  )) %>% 
+  left_join(.,world%>% filter(!(name=="Antarctica")) %>% rename(country_split=name) ,by="country_split") %>%
+  ggplot() +
+  geom_sf(data=world%>% filter(!(name=="Antarctica")),fill="white", color = "gray40",linewidth = 0.1)+
+  geom_sf(aes(geometry=geometry,fill=n), color = "gray40",linewidth = 0.1)+
+  theme(axis.text.x = element_blank(),
+        legend.position = "right",
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        rect = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  scale_fill_gradient( name = "Number of\npublications", low = "#dce6ec", high = "#186B8B", na.value = "white")
+
+# ggsave("world_map_plot.png",world_map_plot,width=9,height=5,dpi=300,bg="white")
+# ggsave("world_map_plot.svg",world_map_plot,width=9,height=5,dpi=300,bg="white")
+```
+
+Defining the regions of each country
+```{r message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
+regions_df<-
+  alldata %>% 
+  drop_na(country) %>% 
+  mutate(country_split=strsplit(as.character(country), ", ")) %>% 
+  select(country_split,year)%>% 
+  unnest(country_split) %>% 
+  mutate(region=countrycode(sourcevar = country_split,
+                            origin = "country.name",
+                            destination = "region"),
+         continent=countrycode(sourcevar = country_split,
+                            origin = "country.name",
+                            destination = "continent"))%>% 
+  mutate(continent=case_when(
+    region=="North America"~"North America",
+    region=="Latin America & Caribbean"~"South America",
+    TRUE~continent
+  ))
+```
+
+Figure 4a - productivity of each continent
+```{r message=FALSE, warning=FALSE}
+Productivity_continent_plot<-rbind(
+  regions_df %>%
+    group_by(continent, year) %>%
+    dplyr::count() %>%
+    group_by(continent) %>%
+    arrange(continent, year) %>%
+    mutate(
+      cumulative_sum = cumsum(n),
+      ratio = n / cumulative_sum
+    ),
+  regions_df %>%
+    group_by(year) %>%
+    dplyr::count() %>%
+    ungroup() %>%
+    arrange(year) %>%
+    mutate(
+      cumulative_sum = cumsum(n),
+      ratio = n / cumulative_sum,
+      continent = "Overall"
+    )
+) %>% 
+  ungroup() %>% 
+  filter(year<2023) %>% 
+  group_by(continent) %>% 
+  mutate(avg_continent=mean(n),n_stand=n/avg_continent) %>% 
+  ggplot()+
+  geom_line(data=. %>% filter(continent!="Overall"),aes(x=year,y=cumulative_sum,color=continent),linewidth=0.8)+
+  geom_star(data=. %>% filter(continent!="Overall"),aes(x=year,y=cumulative_sum,color=continent,fill=continent,starshape=continent),size=3)+
+  geom_smooth(data=. %>% filter(continent=="Overall"),aes(x=year,y=n,color=continent),color=NA,se=T)+
+  # geom_point(data=. %>% filter(continent=="Overall"),aes(x=year,y=n,color=continent),color="black")+
+  scale_y_continuous(trans = log_trans(),labels = function(x)round(x,0),breaks=c(0,5,25,150))+
+  scale_color_manual(values=c("Asia"="#000002","Europe"="#0E375F","North America"="#186B8B","Oceania"="#66B8B4","South America"="#B9E1D2","Africa"="#061231"))+
+  scale_fill_manual(values=c("Asia"="#4d4d4e","Europe"="#899cb0","North America"="#5e98ae","Oceania"="#94cdcb","South America"="#ceeae0","Africa"="#515a6f"))+
+  # scale_shape_manual(values=c("Asia"=21,"Europe"=22,"North America"=23,"South America"=24,"Oceania"="#B9E1D2","Africa"="#061231"))+
+  theme_minimal()+
+  theme(panel.grid.minor = element_blank())+
+  guides(color = guide_legend(override.aes = list(linetype = 0)))+
+  labs(y="Number of publications (cumulative)",x="Year")
+
+# ggsave("Productivity_continent.png",Productivity_continent_plot,width=9,height=5,dpi=300,bg="white")
+# ggsave("Productivity_continent.svg",Productivity_continent_plot,width=9,height=5,dpi=300,bg="white")
+
+```
+
+Figure 4b - productivity of top 5 countries
+```{r, fig.height=5,fig.width=8}
+top5_productive_countries<-alldata %>% 
+  drop_na(country) %>% 
+  select(country,year)%>% 
+  mutate(country_split=strsplit(as.character(country), ", ")) %>% 
+  unnest(country_split) %>% 
+  group_by(country_split) %>% 
+  count() %>% 
+  arrange(-n) %>% 
+  ungroup() %>% 
+  mutate(top_5=1:n()) %>% 
+  mutate(country_label=ifelse(top_5>5,"Other",country_split)) %>% 
+  select(country_split,country_label)
+
+increase_country_plot<-merge(alldata,top5_productive_countries,by.x="country",by.y="country_split") %>% 
+  filter(year<=2022&year>2005) %>% 
+  group_by(country_label,year) %>% 
+  count() %>% 
+  ungroup() %>% 
+  group_by(country_label) %>% 
+  mutate(cumulative_sum = cumsum(n)) %>% 
+  mutate(country_label_f=factor(country_label,levels=c("USA","China","UK","Brazil","Iran","Other"))) %>% 
+  ggplot(aes(x = year, y=cumulative_sum,fill = country_label_f)) +
+  geom_density(position = "stack",stat="identity",linewidth=0.8,color="#f4f6f4") +
+  labs(x = "Year",
+       y = "Number of publications") +
+  theme_minimal()+
+  theme(panel.grid.minor = element_blank(),
+        legend.title=element_blank(),
+        legend.position = "right")+
+  scale_fill_manual(values=c("USA"="#0C1B65","China"="#13477C","UK"="#186B8B","Brazil"="#54ADA5","Iran"="#B1DCC0","Other"="#e9ecea"))
+
+# ggsave("increase_country_plot.png",increase_country_plot,width=6,height=3.5,dpi=300,bg="white")
+ # ggsave("increase_country_plot.svg",increase_country_plot,width=6,height=3.5,dpi=300,bg="white")
+
+```
+
+
+Figure 5a - area plot of risk of bias assessment
+```{r, fig.width=8,fig.height=4}
+rob_area_plot<-alldata %>% 
+  filter(year>=2010) %>% 
+  select(doi,year,starts_with("Rob")) %>% 
+  select(!c(Rob_metaanalysis, Rob_deviations)) %>% 
+  filter(!(is.na(Rob_protocol))) %>% 
+  pivot_longer(!c(year,doi)) %>% 
+  group_by(year,name) %>% 
+  summarise(avg_doi=mean(value)) %>% 
+  mutate(name2=case_when(
+name=="Rob_protocol" ~  "Was a study protocol reported?", 
+  name=="Rob_question" ~ "Was there a clear research question/goal stated?",
+  name=="Rob_inexclusioncriteria" ~ "Did studies report clear exclusion/inclusion criteria?", 
+  name=="Rob_search" ~  "Were to two or more databases searched?",
+  name=="Rob_date" ~ "Was a search date provided?", 
+  name=="Rob_string" ~ "Was a search string provided?",                                       
+  name=="Rob_rob" ~  "Was a critical appraisal conducted?", 
+  name=="Rob_guidelines" ~ "Did the study mention or report guidelines (e.g. SYRCLE)?",
+  name=="Rob_flochart" ~  "Was a study flowchart provided?",
+  name=="Rob_coi" ~ "Was a conflict of interest statement provided?", 
+  name=="Rob_flowchart" ~ "Was a study flowchart provided?", 
+  name=="Rob_extraction" ~ "Was screening/extraction performed by at least two reviewers?")) %>% 
+  filter(!(is.na(name2))) %>% 
+  ggplot(aes(x=year,y=avg_doi))+
+  geom_area(fill="#145b76")+
+  scale_y_continuous(breaks=c(0,0.5,1),labels = percent)+
+  scale_x_continuous(breaks=c(2010,2014,2018,2022))+
+  facet_wrap(.~name2,ncol=2) + 
+  theme_minimal()+
+  theme(
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(size=8,hjust=0)
+        )+
+  labs(y="Average rating",x="Year")
+
+# ggsave("rob_area_plot.png",rob_area_plot,width=8,height=5,dpi=300,bg="white")
+# ggsave("rob_area_plot.svg",rob_area_plot,width=15,height=5,dpi=300,bg="white")
+```
+
+Figure 5b - boxplot of average quality assessment score in top 5 countries
+```{r}
+alldata %>% 
+  filter(year>=2010) %>% 
+  select(doi,country,starts_with("Rob")) %>%   
+  filter(!(is.na(Rob_protocol))) %>% 
+  merge(.,top5_productive_countries %>% select(country_label) %>% unique(),by.x="country",by.y="country_label")%>%
+  mutate(mean_rob = rowMeans(across(where(is.numeric)), na.rm = TRUE)) %>% 
+  ggplot(aes(x=country,y=mean_rob))+
+  geom_boxplot(width=0.2, position= position_nudge(x=-.3))+
+  geom_beeswarm(cex=0.2,size=1,alpha=0.1)+ 
+  theme_minimal()+
+  theme(
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(size=8,hjust=0)
+        )
+
+rob_boxplot_df<-alldata %>% 
+  filter(year>=2010) %>% 
+  select(doi,country,starts_with("Rob")) %>%   
+  filter(!(is.na(Rob_protocol))) %>% 
+  merge(.,top5_productive_countries %>% select(country_label) %>% unique(),by.x="country",by.y="country_label")%>%
+  mutate(mean_rob = rowMeans(across(where(is.numeric)), na.rm = TRUE))
+
+rob_box_plot<-rob_boxplot_df %>% 
+  group_by(country) %>% 
+  mutate(median=median(mean_rob)) %>% 
+  ggplot(aes(y=reorder(country,median),x=mean_rob))+
+  geom_boxplot(width=0.2,position=position_nudge(y=0.3),fill="#186B8B")+
+  geom_jitter(position = position_jitter(w = 0.015, h = 0.07),alpha=0.15,color="#0c3045")+
+  theme_minimal()+
+  theme(
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(size=8,hjust=0)
+        )+
+    scale_x_continuous(labels = label_number(accuracy = 0.01),breaks=c((unique(rob_boxplot_df$mean_rob))))+
+  labs(x="Average risk of bias score",y="Country")
+
+# ggsave("rob_box_plot.png",rob_box_plot,width=7,height=5,dpi=300,bg="white")
+# ggsave("rob_box_plot.svg",rob_box_plot,width=7,height=5,dpi=300,bg="white")
+
+```
+
+Figure 5c - development of quality assessment score over time
+```{r message=FALSE, warning=FALSE}
+RoB_regions_df<-alldata%>% 
+  filter(year>=2010) %>% 
+  select(doi,country,starts_with("Rob"),year) %>%   
+  filter(!(is.na(Rob_protocol))) %>% 
+  drop_na(country) %>% 
+  mutate(country_split=strsplit(as.character(country), ", ")) %>% 
+  unnest(country_split) %>% 
+  mutate(region=countrycode(sourcevar = country_split,
+                            origin = "country.name",
+                            destination = "region"),
+         continent=countrycode(sourcevar = country_split,
+                            origin = "country.name",
+                            destination = "continent"))%>% 
+  mutate(continent=case_when(
+    region=="North America"~"North America",
+    region=="Latin America & Caribbean"~"South America",
+    TRUE~continent
+  ))
+
+avg_rob_year_plot<-RoB_regions_df %>%
+  mutate(mean_rob = rowMeans(across(starts_with("Rob")), na.rm = TRUE)) %>% 
+  select(doi,mean_rob,year) %>% 
+  ggplot(aes(x=year,y=mean_rob))+
+  geom_point(position=position_jitter(width=0.1),alpha=0.1,size=2,color="#103e56")+
+  geom_smooth(color="#186B8B",fill="#186B8B")+
+  theme_minimal()+
+  theme(panel.grid.minor = element_blank())+
+  coord_cartesian(ylim=c(0,1))+
+  labs(x="Year",y="Average risk of bias score")
+
+# ggsave("avg_rob_year_plot.png",avg_rob_year_plot,width=7,height=5,dpi=300,bg="white")
+# ggsave("avg_rob_year_plot.svg",avg_rob_year_plot,width=7,height=5,dpi=300,bg="white")
+
+```
+
+Compiling figure 5
+```{r}
+library(grid)
+
+# Arrange your plots
+fig_5_panel <- ggarrange(
+    rob_area_plot+
+  theme(plot.margin = margin(0.5,0.5,0.5,0.5, "cm")) ,
+    ggarrange(rob_box_plot+coord_flip()+
+  theme(plot.margin = margin(0.5,0.5,0.5,0.5, "cm")) , 
+  avg_rob_year_plot+
+  theme(plot.margin = margin(0.5,0.5,0.5,0.5, "cm")) , ncol = 2, labels = c("B", "C")),
+    nrow = 2, 
+    labels = "A",
+    heights = c(1,1.3)  # Adjust the heights if needed
+)
+
+# Use grid.draw to draw the ggarrange object
+grid.newpage()
+grid.draw(fig_5_panel)
+
+# Then use ggsave, but you might need to specify device explicitly if not working directly
+# ggsave("fig5_panel.svg", device = "svg", width = 5.4 * 1.5, height = 7.2 * 1.4, dpi = 300, bg = "white")
+```
+
+
+
+
