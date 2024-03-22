@@ -39,7 +39,7 @@ df_validation<-df_no_common[sample(nrow(df_no_common),66),] %>%
 ```
 
 ```{r}
-folder_path <- "C:/Users/maria/Desktop/RoB_Mining/All_PDFs_automated_RoB"
+folder_path <- "RoB_Mining/All_PDFs_automated_RoB" #folder containing the pdfs of the papers evaluated by one rater
 
 # Get the list of files in the folder
 files <- list.files("validation/D")
@@ -55,7 +55,7 @@ for (file in files) {
 
 
 ```{r}
-source_folder <- "C:/Users/maria/Desktop/RoB_Mining/All_PDFs_automated_RoB"
+source_folder <- "RoB_Mining/All_PDFs_automated_RoB" 
 destination_folder_B <- "validation/B"
 destination_folder_D <- "validation/D"
 destination_folder_Common <- "validation/Common"
@@ -93,7 +93,7 @@ for (i in files_Common) {
 
 
 ```{r message=FALSE, warning=FALSE}
-# validation_D <- read_csv("validation_D.csv")
+validation_D <- read_csv("validation_D.csv")
 validation_D_clean<-validation_D %>% 
   mutate(file_name=gsub("_0","_separator0",file_name)) %>% 
   mutate(file_name=gsub("_1","_separator1",file_name),file_name=gsub(".pdf","",file_name)) %>% 

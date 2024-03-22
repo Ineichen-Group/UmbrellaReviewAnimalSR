@@ -6,7 +6,7 @@ library(utils)
 
 papers_rob_df<-data.frame()
 
-files<- list.files("html",full.names = TRUE)
+files<- list.files("All_PDFs_automated_RoB/html",full.names = TRUE)
 
 for(i in files){
   list[i]<-try({
